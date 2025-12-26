@@ -297,3 +297,11 @@ bool el_ble_is_connected(void) {
 uint16_t el_ble_get_mtu(void) {
     return current_mtu;
 }
+
+int8_t el_ble_get_rssi(void) {
+    int8_t rssi = 127;  // Invalid value
+    if (conn_handle != BLE_HS_CONN_HANDLE_NONE) {
+        ble_gap_conn_rssi(conn_handle, &rssi);
+    }
+    return rssi;
+}

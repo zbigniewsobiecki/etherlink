@@ -72,6 +72,12 @@ bool el_ble_is_connected(void);
  */
 uint16_t el_ble_get_mtu(void);
 
+/**
+ * Get RSSI of current connection
+ * @return RSSI in dBm (-127 to +20), or 127 if not connected/error
+ */
+int8_t el_ble_get_rssi(void);
+
 #ifdef __cplusplus
 }
 #endif
