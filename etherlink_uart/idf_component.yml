@@ -1,0 +1,5 @@
+version: "1.0.0"
+description: "UART serial transport for Etherlink protocol"
+url: "https://github.com/user/etherlink"
+dependencies:
+  etherlink: "*"

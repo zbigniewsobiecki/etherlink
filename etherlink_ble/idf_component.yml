@@ -1,0 +1,5 @@
+version: "1.0.0"
+description: "BLE Nordic UART Service transport for Etherlink protocol"
+url: "https://github.com/user/etherlink"
+dependencies:
+  etherlink: "*"
