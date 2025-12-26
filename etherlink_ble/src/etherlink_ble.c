@@ -216,6 +216,9 @@ esp_err_t el_ble_init(const el_ble_config_t *config) {
         return ESP_ERR_INVALID_ARG;
     }
 
+    // Suppress verbose NimBLE logging
+    esp_log_level_set("NimBLE", ESP_LOG_ERROR);
+
     protocol_ctx = config->protocol_ctx;
 
     // Initialize NVS (required for BLE)
