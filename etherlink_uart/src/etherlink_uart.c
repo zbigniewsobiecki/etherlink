@@ -14,7 +14,7 @@ static const char *TAG = "el_uart";
 
 #define UART_RX_BUF_SIZE    1024
 #define UART_TX_BUF_SIZE    512
-#define RX_TASK_STACK_SIZE  2048
+#define RX_TASK_STACK_SIZE  4096
 #define RX_TASK_PRIORITY    10
 
 static uart_port_t uart_port = UART_NUM_1;
