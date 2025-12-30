@@ -197,14 +197,14 @@ static void el_ble_advertise(void) {
         ESP_LOGE(TAG, "Failed to set scan rsp: %d", rc);
     }
 
-    // Start advertising with longer interval to reduce RF interference with DShot telemetry
-    // Default is 20-40ms which causes too much radio activity
-    // Use 500ms interval (800 * 0.625ms) to minimize interference
+    // Advertising interval: balance between discoverability and RF interference
+    // Default 20-40ms is too fast, but 500ms+ makes macOS lose device during connect
+    // Use 100-200ms as a reasonable compromise
     memset(&adv_params, 0, sizeof(adv_params));
     adv_params.conn_mode = BLE_GAP_CONN_MODE_UND;
     adv_params.disc_mode = BLE_GAP_DISC_MODE_GEN;
-    adv_params.itvl_min = 800;  // 500ms (800 * 0.625ms)
-    adv_params.itvl_max = 1600; // 1000ms (1600 * 0.625ms)
+    adv_params.itvl_min = 160;  // 100ms (160 * 0.625ms)
+    adv_params.itvl_max = 320;  // 200ms (320 * 0.625ms)
 
     rc = ble_gap_adv_start(own_addr_type, NULL, BLE_HS_FOREVER,
                            &adv_params, ble_gap_event, NULL);
@@ -349,4 +349,17 @@ int8_t el_ble_get_rssi(void) {
 
 void el_ble_set_raw_rx_callback(el_ble_raw_rx_cb_t cb) {
     raw_rx_callback = cb;
+}
+
+esp_err_t el_ble_disconnect(void) {
+    if (conn_handle == BLE_HS_CONN_HANDLE_NONE) {
+        return ESP_ERR_INVALID_STATE;
+    }
+    int rc = ble_gap_terminate(conn_handle, BLE_ERR_REM_USER_CONN_TERM);
+    if (rc != 0) {
+        ESP_LOGE(TAG, "Failed to terminate connection: %d", rc);
+        return ESP_FAIL;
+    }
+    ESP_LOGI(TAG, "Disconnect requested");
+    return ESP_OK;
 }

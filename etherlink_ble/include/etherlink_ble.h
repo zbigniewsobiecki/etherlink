@@ -100,6 +100,16 @@ int8_t el_ble_get_rssi(void);
  */
 void el_ble_set_raw_rx_callback(el_ble_raw_rx_cb_t cb);
 
+/**
+ * Force disconnect from current BLE client
+ *
+ * Useful for recovering from stale connections. After disconnect,
+ * advertising will automatically restart.
+ *
+ * @return ESP_OK on success, ESP_ERR_INVALID_STATE if not connected
+ */
+esp_err_t el_ble_disconnect(void);
+
 #ifdef __cplusplus
 }
 #endif
