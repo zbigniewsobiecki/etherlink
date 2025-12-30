@@ -43,6 +43,11 @@ static uint16_t current_mtu = 23;
 static el_ctx_t *protocol_ctx = NULL;
 static uint8_t own_addr_type;
 
+// Callbacks
+static el_ble_raw_rx_cb_t raw_rx_callback = NULL;
+static el_ble_event_cb_t on_connect_cb = NULL;
+static el_ble_event_cb_t on_disconnect_cb = NULL;
+
 // Forward declarations
 static int nus_chr_access(uint16_t conn_handle, uint16_t attr_handle,
                           struct ble_gatt_access_ctxt *ctxt, void *arg);
@@ -85,9 +90,15 @@ static int nus_chr_access(uint16_t conn_handle, uint16_t attr_handle,
         }
 
         int rc = ble_hs_mbuf_to_flat(ctxt->om, buf, len, NULL);
-        if (rc == 0 && protocol_ctx) {
-            // Auto-wire to Etherlink protocol parser
-            el_process_bytes(protocol_ctx, buf, len);
+        if (rc == 0) {
+            // Call raw callback first (for transparent bridges)
+            if (raw_rx_callback) {
+                raw_rx_callback(buf, len);
+            }
+            // Then parse via protocol if configured
+            if (protocol_ctx) {
+                el_process_bytes(protocol_ctx, buf, len);
+            }
         }
     }
     return 0;
@@ -98,7 +109,23 @@ static int ble_gap_event(struct ble_gap_event *event, void *arg) {
         case BLE_GAP_EVENT_CONNECT:
             if (event->connect.status == 0) {
                 conn_handle = event->connect.conn_handle;
-                ESP_LOGI(TAG, "Connected, handle=%d", conn_handle);
+                ESP_LOGI(TAG, "Connected, handle=%d - advertising STOPPED", conn_handle);
+
+                // Request longer connection interval to reduce BLE radio interference
+                // with DShot telemetry. Use 200-400ms interval (units of 1.25ms)
+                struct ble_gap_upd_params conn_params = {
+                    .itvl_min = 160,  // 200ms (160 * 1.25ms)
+                    .itvl_max = 320,  // 400ms (320 * 1.25ms)
+                    .latency = 0,
+                    .supervision_timeout = 500,  // 5 seconds
+                };
+                ble_gap_update_params(conn_handle, &conn_params);
+                ESP_LOGI(TAG, "Requested longer connection interval (200-400ms)");
+
+                // Call connection callback
+                if (on_connect_cb) {
+                    on_connect_cb();
+                }
             } else {
                 conn_handle = BLE_HS_CONN_HANDLE_NONE;
                 el_ble_advertise();
@@ -112,6 +139,10 @@ static int ble_gap_event(struct ble_gap_event *event, void *arg) {
             // Reset protocol parser on disconnect
             if (protocol_ctx) {
                 el_reset(protocol_ctx);
+            }
+            // Call disconnect callback
+            if (on_disconnect_cb) {
+                on_disconnect_cb();
             }
             el_ble_advertise();
             break;
@@ -166,10 +197,14 @@ static void el_ble_advertise(void) {
         ESP_LOGE(TAG, "Failed to set scan rsp: %d", rc);
     }
 
-    // Start advertising
+    // Start advertising with longer interval to reduce RF interference with DShot telemetry
+    // Default is 20-40ms which causes too much radio activity
+    // Use 500ms interval (800 * 0.625ms) to minimize interference
     memset(&adv_params, 0, sizeof(adv_params));
     adv_params.conn_mode = BLE_GAP_CONN_MODE_UND;
     adv_params.disc_mode = BLE_GAP_DISC_MODE_GEN;
+    adv_params.itvl_min = 800;  // 500ms (800 * 0.625ms)
+    adv_params.itvl_max = 1600; // 1000ms (1600 * 0.625ms)
 
     rc = ble_gap_adv_start(own_addr_type, NULL, BLE_HS_FOREVER,
                            &adv_params, ble_gap_event, NULL);
@@ -219,7 +254,10 @@ esp_err_t el_ble_init(const el_ble_config_t *config) {
     // Suppress verbose NimBLE logging
     esp_log_level_set("NimBLE", ESP_LOG_ERROR);
 
+    // Save configuration
     protocol_ctx = config->protocol_ctx;
+    on_connect_cb = config->on_connect;
+    on_disconnect_cb = config->on_disconnect;
 
     // Initialize NVS (required for BLE)
     esp_err_t ret = nvs_flash_init();
@@ -307,4 +345,8 @@ int8_t el_ble_get_rssi(void) {
         ble_gap_conn_rssi(conn_handle, &rssi);
     }
     return rssi;
+}
+
+void el_ble_set_raw_rx_callback(el_ble_raw_rx_cb_t cb) {
+    raw_rx_callback = cb;
 }

@@ -21,11 +21,23 @@ extern "C" {
 #endif
 
 /**
+ * Raw data callback type for transparent bridge mode
+ */
+typedef void (*el_ble_raw_rx_cb_t)(const uint8_t *data, size_t len);
+
+/**
+ * Connection event callback type
+ */
+typedef void (*el_ble_event_cb_t)(void);
+
+/**
  * Configuration for Etherlink BLE transport
  */
 typedef struct {
     const char *device_name;    // BLE device name (max 29 chars)
     el_ctx_t *protocol_ctx;     // Etherlink protocol context (auto-wires RX)
+    el_ble_event_cb_t on_connect;    // Called on BLE connection (optional)
+    el_ble_event_cb_t on_disconnect; // Called on BLE disconnect (optional)
 } el_ble_config_t;
 
 /**
@@ -77,6 +89,16 @@ uint16_t el_ble_get_mtu(void);
  * @return RSSI in dBm (-127 to +20), or 127 if not connected/error
  */
 int8_t el_ble_get_rssi(void);
+
+/**
+ * Set raw RX callback for transparent bridge mode
+ *
+ * When set, received BLE data is passed to this callback in addition to
+ * (or instead of) the protocol parser. Useful for transparent bridges.
+ *
+ * @param cb Callback function, or NULL to disable
+ */
+void el_ble_set_raw_rx_callback(el_ble_raw_rx_cb_t cb);
 
 #ifdef __cplusplus
 }
